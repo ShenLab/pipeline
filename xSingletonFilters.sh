@@ -34,13 +34,13 @@ cd $DirNam
 
 #De novo
 echo "De Novo Filtering.."
-$FiltScrDir/ExmFilt.CustomGenotype_NewAnn.py -v $VcfFil -o $FamNam.denovo --het $Proband --maf 0.001 -P
+$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.denovo --het $Proband --maf 0.001 -P
 #Autosomal Recessive
 echo "Autosomal Recessive.."
-$FiltScrDir/ExmFilt.CustomGenotype_NewAnn.py -v $VcfFil -o $FamNam.AR --alt $Proband -P
+$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AR --alt $Proband -P
 #Autosomal Dominant
 echo "Autosomal Dominant - maternal inheritance.."
-$FiltScrDir/ExmFilt.CustomGenotype_NewAnn.py -v $VcfFil -o $FamNam.AD  --het $Proband -P
+$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AD  --het $Proband -P
 R --vanilla <<RSCRIPT
 options(stringsAsFactors=F)
 

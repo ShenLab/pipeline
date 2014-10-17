@@ -39,7 +39,7 @@ cd $DirNam
 
 #De novo
 echo "De Novo Filtering.."
-CMD="$FiltScrDir/ExmFilt.CustomGenotype_NewAnn.py -v $VcfFil -o $FamNam.denovo --het $Proband --ref $Father,$Mother --maf 0.001 -p"
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.denovo --het $Proband --ref $Father,$Mother --maf 0.001 -p"
 if [[ -n $Extras ]]; then
     CMD=$CMD" --unfl $Extras"
 fi
@@ -47,7 +47,7 @@ echo $CMD
 eval $CMD
 #Autosomal Recessive
 echo "Autosomal Recessive.."
-CMD="$FiltScrDir/ExmFilt.CustomGenotype_NewAnn.py -v $VcfFil -o $FamNam.AR --alt $Proband --het $Father,$Mother -P"
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AR --alt $Proband --het $Father,$Mother -P"
 if [[ -n $Extras ]]; then
     CMD=$CMD" --unfl $Extras"
 fi
@@ -55,7 +55,7 @@ echo $CMD
 eval $CMD
 #X linked - male proband
 echo "X linked - male proband.."
-CMD="$FiltScrDir/ExmFilt.CustomGenotype_NewAnn.py -v $VcfFil -o $FamNam.X-linked --alt $Proband --het $Mother --ref $Father -X  -P"
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.X-linked --alt $Proband --het $Mother --ref $Father -X  -P"
 if [[ -n $Extras ]]; then
     CMD=$CMD" --unfl $Extras"
 fi
@@ -63,7 +63,7 @@ echo $CMD
 eval $CMD
 #Autosomal Dominant - paternal inheritance
 echo "Autosomal Dominant - paternal inheritance.."
-CMD="$FiltScrDir/ExmFilt.CustomGenotype_NewAnn.py -v $VcfFil -o $FamNam.AD-paternal  --het $Proband,$Father --ref $Mother  -P"
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AD-paternal  --het $Proband,$Father --ref $Mother  -P"
 if [[ -n $Extras ]]; then
     CMD=$CMD" --unfl $Extras"
 fi
@@ -71,7 +71,7 @@ echo $CMD
 eval $CMD
 #Autosomal Dominant - maternal inheritance
 echo "Autosomal Dominant - maternal inheritance.."
-CMD="$FiltScrDir/ExmFilt.CustomGenotype_NewAnn.py -v $VcfFil -o $FamNam.AD-maternal  --het $Proband,$Mother --ref $Father -P"
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AD-maternal  --het $Proband,$Mother --ref $Father -P"
 if [[ -n $Extras ]]; then
     CMD=$CMD" --unfl $Extras"
 fi
@@ -79,13 +79,13 @@ echo $CMD
 eval $CMD
 #compound heterozygous
 echo "Compund heterozygous.."
-CMD="$FiltScrDir/ExmFilt.CustomGenotype_NewAnn.py -v $VcfFil -o $FamNam.tempheppat  --het $Proband,$Father --ref $Mother -p"
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.tempheppat  --het $Proband,$Father --ref $Mother -p"
 if [[ -n $Extras ]]; then
     CMD=$CMD" --unfl $Extras"
 fi
 echo $CMD
 eval $CMD
-CMD="$FiltScrDir/ExmFilt.CustomGenotype_NewAnn.py -v $VcfFil -o $FamNam.temphepmat  --het $Proband,$Mother --ref $Father -p"
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.temphepmat  --het $Proband,$Mother --ref $Father -p"
 if [[ -n $Extras ]]; then
     CMD=$CMD" --unfl $Extras"
 fi

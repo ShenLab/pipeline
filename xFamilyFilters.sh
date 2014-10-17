@@ -37,11 +37,11 @@ if [[ $ModNam == *X* ]]; then FilPrm=$FilPrm" -X"; fi
 
 #De novo
 echo "Filtering.."
-CMD="$FiltScrDir/ExmFilt.CustomGenotype_NewAnn.py -v $VcfFil -o $FamNam.$ModNam.stringent $FilPrm -P"
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.$ModNam.stringent $FilPrm -P"
 echo $CMD
 eval $CMD
 
 echo "Filtering.."
-CMD="$FiltScrDir/ExmFilt.CustomGenotype_NewAnn.py -v $VcfFil -o $FamNam.$ModNam.relaxed $FilPrm -p"
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.$ModNam.relaxed $FilPrm -p"
 echo $CMD
 eval $CMD

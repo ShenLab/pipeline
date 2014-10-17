@@ -23,7 +23,7 @@ FiltScrDir="/ifs/scratch/c2b2/af_lab/ads2202/Exome_Seq/scripts/Filtering_scripts
 
 VcfFil=`readlink -f $VcfFil`
 
-PyCall="/ifs/scratch/c2b2/af_lab/ads2202/Exome_Seq/scripts/Filtering_scripts/ExmFilt.CustomGenotype_NewAnn.py -v $VcfFil -o $OutFil.temp -f 0.01 -p " 
+PyCall="/ifs/scratch/c2b2/af_lab/ads2202/Exome_Seq/scripts/Filtering_scripts/ExmFilt.CustomGenotype.py -v $VcfFil -o $OutFil.temp -f 0.01 -p " 
 
 runCustomFilter(){
 if [[ $Unfiltered ]]; then TwinComp=$TwinComp" --unfl $Unfiltered"; fi
