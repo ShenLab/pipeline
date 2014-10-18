@@ -1,5 +1,5 @@
 #!/bin/bash
-#$ -cwd -l mem=1G,time=1:: -N FilterTrio
+#$ -cwd -l mem=1G,time=1:: -N FilterPC
 
 #hpc workarounds
 if [[ /bin/hostname==*.hpc ]]; then 
