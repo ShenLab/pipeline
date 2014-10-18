@@ -43,12 +43,14 @@ parser.set_defaults(MQ0threshold="0.05")
 parser.set_defaults(DPthreshold="5")
 parser.set_defaults(MAFthreshold="0.01")
 parser.set_defaults(GQthreshold="40")
+parser.set_defaults(CHTthreshold="0.2")
 
 
 parser.add_option("-d", "--dp", dest="DPthreshold",help="minimum depth of coverage", metavar="DPthreshold")
 parser.add_option("-m", "--mq", dest="MQ0threshold",help="maximum for MQ value, given as a decimal fraction (e.g. 0.05 = 5% of reads for a variant can have MQ0) - fraction of reads with quality 0", metavar="MQ0")
 parser.add_option("-f", "--maf", dest="MAFthreshold",help="maximum MAF", metavar="MAFthreshold")
 parser.add_option("-g", "--gq", dest="GQthreshold",help="minimum for GQ value", metavar="GQthreshold")
+parser.add_option("-c", "--cht", dest="CHTthreshold",help="maximum frequency of allele in cohort of samples in the vcf", metavar="CHTthreshold")
 
 parser.add_option("-P", "--highpathogenicity", action='store_true', dest="highpatho", help="Filter using high pathogenicity predictions")
 parser.add_option("-p", "--lowpathogenicity", action='store_true', dest="lowpatho", help="Filter using low pathogenicity predictions")
@@ -82,6 +84,8 @@ MQ0filter=float(options.MQ0threshold)
 MAFfilter=float(options.MAFthreshold)
 DPfilter=int(options.DPthreshold)
 GQfilter=int(options.GQthreshold)
+CHTfilter=float(options.CHTthreshold)
+
 
 # Define sample names using user-defined parameters
 HomozygousSamples=options.homozygousgenotypes
@@ -129,6 +133,7 @@ Outlog.write("Variant Filters: \n")
 Outlog.write("\t MQ0/DP maximum: "+str(MQ0filter)+"\n")
 Outlog.write("\t 1000 genomes alternate allele frequency maximum: "+str(MAFfilter)+"\n")
 Outlog.write("\t GO ESP alternate allele frequency maximum: "+str(MAFfilter)+"\n")
+Outlog.write("\t Within VCF allele frequency maximum: "+str(CHTfilter)+"\n")
 
 Outlog.write("Individual Sample Filters: \n")
 Outlog.write("\t Minimum Depth of Coverage: "+str(DPfilter)+"\n")
@@ -149,6 +154,12 @@ NameToColumn={}
 ColumnToName={}
 OrigCount=0
 FiltCount=0
+
+InDelClass=['frameshiftdeletion','frameshiftinsertion','frameshiftsubstitution','nonframeshiftdeletion','nonframeshiftinsertion','nonframeshiftsubstitution']
+
+BadSnpFilters=['QD_Bad_SNP','FS_Bad_SNP','FS_Mid_SNP;QD_Mid_SNP','SnpCluster','StandardFilters']
+BadInDFilters=['FSBias_Indel','LowQD_Indel','RPBias_Indel','SnpCluster','StandardFilters']
+
 
 for line in VCF:
     # Map column name to number, and then find column numbers of each set of trios
@@ -180,7 +191,7 @@ for line in VCF:
         REFlist=linelist[4]
         REFlist=REFlist.split(",")
         
-        QUAL=linelist[5]
+        VariantFilter=linelist[6]
         INFOstring=linelist[7]
         INFOcolumnList=INFOstring.split(";")
         INFOdict={}
@@ -191,47 +202,39 @@ for line in VCF:
         
         # Get variant data
         
-        
-        QDnumber=float(INFOdict.get('QD',0))
-        DPnumber=float(INFOdict.get('DP',0))
-        MQ0number=float(INFOdict.get('MQ0',0))
-        GeneName=INFOdict.get('GeneName','NA')
+        DPnumber=float(INFOdict.get('DP','.'))
+        MQ0number=float(INFOdict.get('MQ0','.'))
+        GeneName=INFOdict.get('GeneName','.')
         VariantFunction=INFOdict.get('VarFunc','none')
         
-        KGscoreList=str(INFOdict.get('1KGfreq',0))
-        KGscoreList=KGscoreList.split(',')
-        ESPscoreList=str(INFOdict.get('ESPfreq',0))
-        ESPscoreList=ESPscoreList.split(',')
+        KGFreqList=str(INFOdict.get('1KGfreq','.'))
+        KGFreqList=KGFreqList.split(',')
+        ESPFreqList=str(INFOdict.get('ESPfreq','.'))
+        ESPFreqList=ESPFreqList.split(',')
+        VCFFreqList=str(INFOdict.get('AF',0))
+        VCFFreqList=VCFFreqList.split(",")
         
         VariantClassList=INFOdict.get('VarClass','none')
         VariantClassList=VariantClassList.split(',')
-        AAchangeList=INFOdict.get('AAChange','NA')
+        AAchangeList=INFOdict.get('AAChange','.')
         AAchangeList=AAchangeList.split(',')
-        SIFTscoreList=str(INFOdict.get('SIFTscr',0))
+        SIFTscoreList=str(INFOdict.get('SIFTscr','.'))
         SIFTscoreList=SIFTscoreList.split(',')
-        SIFTpredictionList=INFOdict.get('SIFTprd','NA')
+        SIFTpredictionList=INFOdict.get('SIFTprd','.')
         SIFTpredictionList=SIFTpredictionList.split(',')
-        PP2scoreList=str(INFOdict.get('PP2.hvar.scr',0))
+        PP2scoreList=str(INFOdict.get('PP2.hvar.scr','.'))
         PP2scoreList=PP2scoreList.split(',')
-        PP2predictionList=INFOdict.get('PP2.hvar.prd','NA')
+        PP2predictionList=INFOdict.get('PP2.hvar.prd','.')
         PP2predictionList=PP2predictionList.split(',')
-        MTscoreList=str(INFOdict.get('MutTscr',0))
+        MTscoreList=str(INFOdict.get('MutTscr','.'))
         MTscoreList=MTscoreList.split(',')
-        MTpredictionList=INFOdict.get('MutTprd','NA')
+        MTpredictionList=INFOdict.get('MutTprd','.')
         MTpredictionList=MTpredictionList.split(',')
-        GERPscoreList=str(INFOdict.get('GERP',0))
-        GERPscoreList=GERPscoreList.split(',')
-        PHYLOPscoreList=str(INFOdict.get('PhyloP',0))
-        PHYLOPscoreList=PHYLOPscoreList.split(',')
-        CADDscoreList=str(INFOdict.get('CADDphred',0))
+        CADDscoreList=str(INFOdict.get('CADDphred','.'))
         CADDscoreList=CADDscoreList.split(',')
         
-        # Check if MQ0 passes threshold
-        PassMQ=False
-        MQ0Fraction=MQ0number/DPnumber
-        if MQ0Fraction <= MQ0filter:
-            PassMQ=True
-         
+        #Variant level checks
+        
         # Get number of alternate alleles
         AltAlls=linelist[4]
         AltAlls=AltAlls.split(",")
@@ -261,15 +264,24 @@ for line in VCF:
         NotAlternateGT=[ NotAlternateQualityList[i][0] for i in range(0,len(NotAlternateQualityString)) ]
         NotFilteredGT=[ NotFilteredQualityList[i][0] for i in range(0,len(NotFilteredQualityString)) ]
         
-        # First check if all genotypes are present
+        # Check if MQ0 passes threshold
+        PassMQ=False
+        MQ0Fraction=MQ0number/DPnumber
+        if MQ0Fraction <= MQ0filter:
+            PassMQ=True
+         
+        # Check if all genotypes are present
+        PassGeno=False
+        if './.' not in HomozygousGT and './.' not in HeterozygousGT and './.' not in ReferenceGT and './.' not in NotReferenceGT and './.' not in NotAlternateGT:
+            PassGeno=True
         
-        
+        # Check if Variant class passes
         PassFunction=False
         if VariantFunction=='exonic' or VariantFunction=='splicing' or VariantFunction=="exonic,splicing" or VariantFunction=='none':
             PassFunction=True
         
-        # Check if Variant class passes
-        if './.' not in HomozygousGT and './.' not in HeterozygousGT and './.' not in ReferenceGT and './.' not in NotReferenceGT and './.' not in NotAlternateGT and PassFunction:
+        
+        if PassGeno and PassFunction and PassMQ :
             
             # Define DP
             HomozygousDP=[ str(HomozygousQualityList[i][2]) for i in range(0,len(HomozygousQualityString)) ]
@@ -317,24 +329,32 @@ for line in VCF:
                 
                 # Check if KG passes threshold
                 PassKG=False
-                cltnum=min(len(KGscoreList)-1, altnum)
-                KGscore=str(KGscoreList[cltnum])
-                if KGscore == ".":
-                    KGscore="0"
-                KGscore=float(KGscore)
-                if KGscore <= MAFfilter:
+                cltnum=min(len(KGFreqList)-1, altnum)
+                KGFreq=str(KGFreqList[cltnum])
+                if KGFreq == ".":
+                    KGFreqtest=float(0)
+                else:
+                    KGFreqtest=float(KGFreq)
+                if KGFreqtest <= MAFfilter:
                     PassKG=True
                 
                 # Check if ESP passes threshold
                 PassESP=False
-                cltnum=min(len(ESPscoreList)-1, altnum)
-                ESPscore=str(ESPscoreList[cltnum])
-                if ESPscore == ".":
-                    ESPscore="0"
-                ESPscore=float(ESPscore)
-                if ESPscore <= MAFfilter:
+                cltnum=min(len(ESPFreqList)-1, altnum)
+                ESPFreq=str(ESPFreqList[cltnum])
+                if ESPFreq == ".":
+                    ESPFreqtest=float(0)
+                else:
+                    ESPFreqtest=float(ESPFreq)
+                if ESPFreqtest <= MAFfilter:
                     PassESP=True
                 
+                # Check if VCF passes threshold
+                PassVCF=False
+                cltnum=min(len(VCFFreqList)-1, altnum)
+                VCFFreqtest=float(VCFFreqList[cltnum])
+                if VCFFreqtest <= CHTfilter:
+                    PassVCF=True
                 
                 #check GT
                 PassGT=False
@@ -350,36 +370,44 @@ for line in VCF:
                 cltnum=min(len(CADDscoreList)-1, altnum)
                 CADDscore=str(CADDscoreList[cltnum])
                 if CADDscore == ".":
-                    CADDscore="0"
-                CADDscore=float(CADDscore)
+                    CADDscoretest=float(0)
+                else:
+                    CADDscoretest=float(CADDscore)
                 if HighPatho and (SIFTprediction=="D" and PP2prediction!="B"):
                     PassPatho=True
-                if HighPatho and CADDscore>=20:
+                if HighPatho and CADDscoretest>=20:
                     PassPatho=True
-                if LowPatho and (SIFTprediction=="D" or PP2prediction=="D" or PP2prediction=="P" or CADDscore>=15):
+                if LowPatho and (SIFTprediction=="D" or PP2prediction=="D" or PP2prediction=="P" or CADDscoretest>=15):
                     PassPatho=True
                 if not LowPatho and not HighPatho:
                     PassPatho=True
+                if VariantFunction=='splicing' or VariantFunction=="exonic,splicing":
+                    PassPatho=True
+                if VariantClass in InDelClass:
+                    PassPatho=True
                 
+                PassFilter=False
+                if VariantClass in InDelClass and VariantFilter not in BadInDFilters:
+                    PassFilter=True
+                if VariantClass not in InDelClass and VariantFilter not in BadSnpFilters:
+                    PassFilter=True
                 
-                cltnum=min(len(ESPscoreList)-1, altnum)
-                ESPscore=str(ESPscoreList[cltnum])
-                cltnum=min(len(KGscoreList)-1, altnum)
-                KGscore=str(KGscoreList[cltnum])
-                cltnum=min(len(CADDscoreList)-1, altnum)
-                CADDscore=str(CADDscoreList[cltnum])
+                #cltnum=min(len(ESPFreqList)-1, altnum)
+                #ESPFreq=str(ESPFreqList[cltnum])
+                #cltnum=min(len(KGFreqList)-1, altnum)
+                #KGFreq=str(KGFreqList[cltnum])
+                #cltnum=min(len(CADDscoreList)-1, altnum)
+                #CADDscore=str(CADDscoreList[cltnum])
                 cltnum=min(len(AAchangeList)-1, altnum)
                 AAchange=AAchangeList[cltnum]
                 cltnum=min(len(MTpredictionList)-1, altnum)
                 MTprediction=MTpredictionList[cltnum]
-                cltnum=min(len(PHYLOPscoreList)-1, altnum)
-                PHYLOPscore=PHYLOPscoreList[cltnum]
                 #output
                 if DeBug:
-                    OutPass.write("\t"+linelist[0]+" "+linelist[1]+" "+linelist[3]+" "+linelist[4]+" "+str(altnum)+" "+str(PassKG)+" "+str(PassESP)+" "+str(PassMQ)+" "+str(PassFunction)+" "+str(PassClass)+" "+str(PassGT)+" "+str(PassDP)+" "+str(PassGQ)+" "+str(PassPatho)+"\n")
+                    OutPass.write("\t"+linelist[0]+" "+linelist[1]+" "+linelist[3]+" "+linelist[4]+" "+str(altnum)+" "+str(PassKG)+" "+str(PassESP)+" "+str(PassVCF)+" "+str(PassMQ)+" "+str(PassFunction)+" "+str(PassClass)+" "+str(PassGT)+" "+str(PassDP)+" "+str(PassGQ)+" "+str(PassPatho)+" "+str(PassFilter)+"\n")
                 # If all pass then output line
-                if PassKG and PassESP and PassMQ and PassGT and PassDP and PassGQ and PassPatho:
-                    OutputList=linelist[0:4]+[REF,GeneName,VariantFunction,VariantClass,AAchange,KGscore,ESPscore,SIFTprediction,PP2prediction,MTprediction,CADDscore]+HomozygousGT+HeterozygousGT+ReferenceGT+NotReferenceGT+NotAlternateGT+NotFilteredGT
+                if PassKG and PassESP and PassVCF and PassGT and PassDP and PassGQ and PassPatho and PassFilter:
+                    OutputList=linelist[0:4]+[REF,GeneName,VariantFunction,VariantClass,AAchange,KGFreq,ESPFreq,SIFTprediction,PP2prediction,MTprediction,CADDscore]+HomozygousGT+HeterozygousGT+ReferenceGT+NotReferenceGT+NotAlternateGT+NotFilteredGT
                     OutputList= [ str(i) for i in OutputList ]
                     OutputString="\t".join(OutputList)
                     Output.write(OutputString+"\n")
