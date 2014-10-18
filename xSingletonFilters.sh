@@ -32,14 +32,11 @@ if [[ -n $DirPre ]]; then DirNam=$DirPre"_"$DirNam; fi
 mkdir -p $DirNam
 cd $DirNam
 
-#De novo
-echo "De Novo Filtering.."
-$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.denovo --het $Proband --maf 0.001 -P
 #Autosomal Recessive
 echo "Autosomal Recessive.."
 $FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AR --alt $Proband -P
 #Autosomal Dominant
-echo "Autosomal Dominant - maternal inheritance.."
+echo "Autosomal Dominant.."
 $FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AD  --het $Proband -P
 R --vanilla <<RSCRIPT
 options(stringsAsFactors=F)
