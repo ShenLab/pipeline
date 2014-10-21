@@ -52,8 +52,8 @@ parser.add_option("-f", "--maf", dest="MAFthreshold",help="maximum MAF", metavar
 parser.add_option("-g", "--gq", dest="GQthreshold",help="minimum for GQ value", metavar="GQthreshold")
 parser.add_option("-c", "--cht", dest="CHTthreshold",help="maximum frequency of allele in cohort of samples in the vcf", metavar="CHTthreshold")
 
-parser.add_option("-P", "--highpathogenicity", action='store_true', dest="highpatho", help="Filter using high pathogenicity predictions")
-parser.add_option("-p", "--lowpathogenicity", action='store_true', dest="lowpatho", help="Filter using low pathogenicity predictions")
+parser.add_option("-p", "--nopathogenicity", action='store_true', dest="nopatho", help="Do not filter using pathogenicity predictions")
+
 parser.add_option("-X", "--xlinked", action='store_true', dest="xlink", help="Only output X chromosome")
 
 
@@ -72,8 +72,7 @@ PassOutputFilename=BaseName+'.boolean.log'
 Output=open(TabOutputFilename,'w')
 Outvcf=open(VcfOutputFilename,'w')
 Outlog=open(LogOutputFilename,'w')
-HighPatho=options.highpatho
-LowPatho=options.lowpatho
+NoPatho=options.nopatho
 XLink=options.xlink
 DeBug=options.debug
 if DeBug:
@@ -118,7 +117,7 @@ if NotFilteredSamples is not None:
 #start log file
 import datetime
 TimeNow=str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
-Outlog.write("De novo filtering log: "+TimeNow+"\n")
+Outlog.write("Filtering log: "+TimeNow+"\n")
 Outlog.write("VCF: "+str(options.VCFfile)+"\n")
 
 Outlog.write("Genotype Filters: \n")
@@ -138,15 +137,13 @@ Outlog.write("\t Within VCF allele frequency maximum: "+str(CHTfilter)+"\n")
 Outlog.write("Individual Sample Filters: \n")
 Outlog.write("\t Minimum Depth of Coverage: "+str(DPfilter)+"\n")
 Outlog.write("\t Minimum Genotyping Quality(GQ): "+str(GQfilter)+"\n")
-if not LowPatho and not HighPatho:
-    Outlog.write("\t Predicted Pathogenecity Filters: None \n")
-if HighPatho:
-    Outlog.write("\t Predicted Pathogenecity Filters: both SIFT=D AND PP2=D or P, or CADD >= 20 \n")
-if LowPatho:
-    Outlog.write("\t Predicted Pathogenecity Filters: SIFT=D or PP2=D or P or CADD >= 10 \n")
+if NoPatho:
+    Outlog.write("\t No Predicted Pathogenecity Filters")
+if not NoPatho:
+    Outlog.write("\t Predicted Pathogenecity Filters: at least SIFT=D or PP2=D or P or CADD >= 20; all InDels and Nonsense \n")
 
 #Start output table
-headerlist=['Chromosome','Position','ID','REF','ALT','Gene','VariantFunction','VariantClass','AAchange','AlleleFrequency.1KG','AlleleFrequency.ESP','SIFTprediction','PP2prediction','MTprediction','CADDscore']+HomozygousSampleList+HeterozygousSampleList+ReferenceSampleList+NotReferenceSampleList+NotAlternateSampleList+NotFilteredSampleList
+headerlist=['Chromosome','Position','ID','REF','ALT','Gene','VariantFunction','VariantClass','AAchange','AlleleFrequency.1KG','AlleleFrequency.ESP','SIFTprediction','PP2prediction','MTprediction','CADDscore','PredictionSummary']+HomozygousSampleList+HeterozygousSampleList+ReferenceSampleList+NotReferenceSampleList+NotAlternateSampleList+NotFilteredSampleList+['FILTER', 'INFO']+HomozygousSampleList+HeterozygousSampleList+ReferenceSampleList+NotReferenceSampleList+NotAlternateSampleList+NotFilteredSampleList
 Output.write("\t".join(headerlist)+"\n")
 
 # Read VCF file
@@ -155,7 +152,8 @@ ColumnToName={}
 OrigCount=0
 FiltCount=0
 
-InDelClass=['frameshiftdeletion','frameshiftinsertion','frameshiftsubstitution','nonframeshiftdeletion','nonframeshiftinsertion','nonframeshiftsubstitution']
+InDelClass=['frameshiftdeletion','frameshiftinsertion','frameshiftsubstitution','nonframeshiftdeletion']
+NonsenseClass=['nonframeshiftinsertion','nonframeshiftsubstitution']
 
 BadSnpFilters=['QD_Bad_SNP','FS_Bad_SNP','FS_Mid_SNP;QD_Mid_SNP','SnpCluster','StandardFilters']
 BadInDFilters=['FSBias_Indel','LowQD_Indel','RPBias_Indel','SnpCluster','StandardFilters']
@@ -373,17 +371,24 @@ for line in VCF:
                     CADDscoretest=float(0)
                 else:
                     CADDscoretest=float(CADDscore)
-                if HighPatho and (SIFTprediction=="D" and PP2prediction!="B"):
+                
+                PathoLevel="Low"
+                if SIFTprediction=="D" or PP2prediction=="D" or PP2prediction=="P" or CADDscoretest>=15:
+                    PathoLevel="Med"
                     PassPatho=True
-                if HighPatho and CADDscoretest>=20:
+                if SIFTprediction=="D" and PP2prediction=="D":
+                    PathoLevel="High"
                     PassPatho=True
-                if LowPatho and (SIFTprediction=="D" or PP2prediction=="D" or PP2prediction=="P" or CADDscoretest>=15):
-                    PassPatho=True
-                if not LowPatho and not HighPatho:
+                if CADDscoretest>=25:
+                    PathoLevel="High"
                     PassPatho=True
                 if VariantFunction=='splicing' or VariantFunction=="exonic,splicing":
+                    PathoLevel="High"
                     PassPatho=True
-                if VariantClass in InDelClass:
+                if VariantClass in InDelClass or VariantClass in NonsenseClass:
+                    PathoLevel="High"
+                    PassPatho=True
+                if NoPatho:
                     PassPatho=True
                 
                 PassFilter=False
@@ -392,12 +397,6 @@ for line in VCF:
                 if VariantClass not in InDelClass and VariantFilter not in BadSnpFilters:
                     PassFilter=True
                 
-                #cltnum=min(len(ESPFreqList)-1, altnum)
-                #ESPFreq=str(ESPFreqList[cltnum])
-                #cltnum=min(len(KGFreqList)-1, altnum)
-                #KGFreq=str(KGFreqList[cltnum])
-                #cltnum=min(len(CADDscoreList)-1, altnum)
-                #CADDscore=str(CADDscoreList[cltnum])
                 cltnum=min(len(AAchangeList)-1, altnum)
                 AAchange=AAchangeList[cltnum]
                 cltnum=min(len(MTpredictionList)-1, altnum)
@@ -407,7 +406,7 @@ for line in VCF:
                     OutPass.write("\t"+linelist[0]+" "+linelist[1]+" "+linelist[3]+" "+linelist[4]+" "+str(altnum)+" "+str(PassKG)+" "+str(PassESP)+" "+str(PassVCF)+" "+str(PassMQ)+" "+str(PassFunction)+" "+str(PassClass)+" "+str(PassGT)+" "+str(PassDP)+" "+str(PassGQ)+" "+str(PassPatho)+" "+str(PassFilter)+"\n")
                 # If all pass then output line
                 if PassKG and PassESP and PassVCF and PassGT and PassDP and PassGQ and PassPatho and PassFilter:
-                    OutputList=linelist[0:4]+[REF,GeneName,VariantFunction,VariantClass,AAchange,KGFreq,ESPFreq,SIFTprediction,PP2prediction,MTprediction,CADDscore]+HomozygousGT+HeterozygousGT+ReferenceGT+NotReferenceGT+NotAlternateGT+NotFilteredGT
+                    OutputList=linelist[0:4]+[REF,GeneName,VariantFunction,VariantClass,AAchange,KGFreq,ESPFreq,SIFTprediction,PP2prediction,MTprediction,CADDscore,PathoLevel]+HomozygousGT+HeterozygousGT+ReferenceGT+NotReferenceGT+NotAlternateGT+NotFilteredGT+[VariantFilter,INFOstring]+HomozygousQualityString+HeterozygousQualityString+ReferenceQualityString+NotReferenceQualityString+NotAlternateQualityString+NotFilteredQualityString
                     OutputList= [ str(i) for i in OutputList ]
                     OutputString="\t".join(OutputList)
                     Output.write(OutputString+"\n")
