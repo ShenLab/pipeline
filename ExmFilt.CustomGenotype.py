@@ -185,8 +185,11 @@ InDelClass=NonFrameshiftClass+FrameshiftClass
 NonsenseClass=['stopgain','stoploss']
 SplicingClass=['splicing','exonic,splicing']
 
-BadSnpFilters=['QD_Bad_SNP','FS_Bad_SNP','FS_Mid_SNP;QD_Mid_SNP','SnpCluster','StandardFilters']
-BadInDFilters=['FSBias_Indel','LowQD_Indel','RPBias_Indel','SnpCluster','StandardFilters']
+#BadSnpFilters=['QD_Bad_SNP','FS_Bad_SNP','FS_Mid_SNP;QD_Mid_SNP','SnpCluster','StandardFilters']
+#BadInDFilters=['FSBias_Indel','LowQD_Indel','RPBias_Indel','SnpCluster','StandardFilters']
+BadSnpFilters=['QD_Bad_SNP','FS_Bad_SNP','FS_Mid_SNP;QD_Mid_SNP','StandardFilters']
+BadInDFilters=['FSBias_Indel','LowQD_Indel','RPBias_Indel','StandardFilters']
+
 
 
 for line in VCF:
