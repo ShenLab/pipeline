@@ -13,8 +13,8 @@
 #    -u/--unfl not filtered just output genotype data
 #    -d/--dp    <optional>    The user may optionally specify a minimum depth of coverage for each individual
 #    -g/--gq    <optional>    The user may optionally specify a minimum genotyping quality for each individual
-#    -q/--mq    <optional>    The user may optionally specify a maximum for the ratio of MQ0/DP for each variant
-#    -m/--maf    <optional>    The user may optionally specify a maximum alternate allele frequency for each variant - compared to both 1KG and ESP-GO
+#    -m/--mq    <optional>    The user may optionally specify a maximum for the ratio of MQ0/DP for each variant
+#    -f/--maf    <optional>    The user may optionally specify a maximum alternate allele frequency for each variant - compared to both 1KG and ESP-GO
 #
 # It is not necessary to specify all of the samples in the vcf, if only a subset is supplied only that subset will be used for filtering and output to the tab delimited file; the output vcf will contain all samples. If no samples are specified then all variants will be returned
 # If a variant has multiple alternate alleles then the script will, with some limitations, iterate across possible combinations of these for heterozygous and homozygous alternate. Limitations:
@@ -40,21 +40,28 @@ parser.add_option("-u", "--unfl", dest="notfiltered",help="Samples that should n
 
 # Additional Parameters to Adjust filtering thresholds
 parser.set_defaults(MQ0threshold="0.05")
-parser.set_defaults(DPthreshold="5")
+parser.set_defaults(DPthreshold="3")
 parser.set_defaults(MAFthreshold="0.01")
-parser.set_defaults(GQthreshold="40")
+parser.set_defaults(GQthreshold="30")
 parser.set_defaults(CHTthreshold="0.2")
+parser.set_defaults(HetAllCountthreshold="3")
+parser.set_defaults(HomAllFracthreshold="0.8")
 
+## b        k l    p q  s t   w  y z 
 
 parser.add_option("-d", "--dp", dest="DPthreshold",help="minimum depth of coverage", metavar="DPthreshold")
 parser.add_option("-m", "--mq", dest="MQ0threshold",help="maximum for MQ value, given as a decimal fraction (e.g. 0.05 = 5% of reads for a variant can have MQ0) - fraction of reads with quality 0", metavar="MQ0")
 parser.add_option("-f", "--maf", dest="MAFthreshold",help="maximum MAF", metavar="MAFthreshold")
 parser.add_option("-g", "--gq", dest="GQthreshold",help="minimum for GQ value", metavar="GQthreshold")
 parser.add_option("-c", "--cht", dest="CHTthreshold",help="maximum frequency of allele in cohort of samples in the vcf", metavar="CHTthreshold")
+parser.add_option("-i", "--aac", dest="HetAllCountthreshold",help="minimum alternate allele count in heterozygous calls", metavar="HetAllCountthreshold")
+parser.add_option("-j", "--haf", dest="HomAllFracthreshold",help="Fraction of allele counts for homozygous allele", metavar="HomAllFracthreshold")
 
-parser.add_option("-p", "--nopathogenicity", action='store_true', dest="nopatho", help="Do not filter using pathogenicity predictions")
+parser.add_option("-P", "--nopathogenicity", action='store_true', dest="nopatho", help="Do not filter using pathogenicity predictions")
 
 parser.add_option("-X", "--xlinked", action='store_true', dest="xlink", help="Only output X chromosome")
+parser.add_option("-D", "--denovo", action='store_true', dest="denovo", help="Use higher stringency filters for de novo")
+parser.add_option("-Q", "--noqual", action='store_true', dest="noqual", help="Do NOT filter by vcf FILTER field")
 
 
 parser.add_option("-z", "--debug", action='store_true', dest="debug", help="Output a boolean decision file for debugging purposes")
@@ -74,26 +81,35 @@ Outvcf=open(VcfOutputFilename,'w')
 Outlog=open(LogOutputFilename,'w')
 NoPatho=options.nopatho
 XLink=options.xlink
+DeNovo=options.denovo
 DeBug=options.debug
+NoQualityFilter=options.noqual
 if DeBug:
     OutPass=open(PassOutputFilename,'w')
 
 # Assign filter variables from optparse
+HetAllCountFilter=int(options.HetAllCountthreshold)
+HomAllFrac=float(options.HomAllFracthreshold)
 MQ0filter=float(options.MQ0threshold)
 MAFfilter=float(options.MAFthreshold)
 DPfilter=int(options.DPthreshold)
 GQfilter=int(options.GQthreshold)
 CHTfilter=float(options.CHTthreshold)
-
+if DeNovo:
+    HetAllCountFilter=6
+    HomAllFrac=0.98
+    MAFfilter=0.001
+    CHTfilter=0.01
+    DPfilter=5
 
 # Define sample names using user-defined parameters
-HomozygousSamples=options.homozygousgenotypes
+AlternateSamples=options.homozygousgenotypes
 HeterozygousSamples=options.heterozygousgenotypes
 ReferenceSamples=options.referencegenotypes
 NotAlternateSamples=options.notalternate
 NotReferenceSamples=options.notreference
 NotFilteredSamples=options.notfiltered
-HomozygousSampleList=[]
+AlternateSampleList=[]
 HeterozygousSampleList=[]
 ReferenceSampleList=[]
 NotAlternateSampleList=[]
@@ -101,8 +117,8 @@ NotReferenceSampleList=[]
 NotFilteredSampleList=[]
 
 
-if HomozygousSamples is not None:
-    HomozygousSampleList=HomozygousSamples.upper().split(',')
+if AlternateSamples is not None:
+    AlternateSampleList=AlternateSamples.upper().split(',')
 if HeterozygousSamples is not None:
     HeterozygousSampleList=HeterozygousSamples.upper().split(',')
 if ReferenceSamples is not None:
@@ -119,41 +135,55 @@ import datetime
 TimeNow=str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
 Outlog.write("Filtering log: "+TimeNow+"\n")
 Outlog.write("VCF: "+str(options.VCFfile)+"\n")
-
+Outlog.write("OutputName: "+str(options.OutputFileName)+"\n")
+Outlog.write("\n")
 Outlog.write("Genotype Filters: \n")
-Outlog.write("Homozygous Samples: "+str(HomozygousSamples)+"\n")
-Outlog.write("Heterozygous Samples: "+str(HeterozygousSamples)+"\n")
-Outlog.write("Reference Samples: "+str(ReferenceSamples)+"\n")
-Outlog.write("Not-Reference Samples: "+str(NotReferenceSamples)+"\n")
-Outlog.write("Not-Alternate Samples: "+str(NotAlternateSamples)+"\n")
-Outlog.write("Unfiltered Samples: "+str(NotFilteredSamples)+"\n")
-
+Outlog.write("\t Homozygous Alternate Samples: "+str(AlternateSamples)+"\n")
+Outlog.write("\t Heterozygous Samples: "+str(HeterozygousSamples)+"\n")
+Outlog.write("\t Homozygous Reference Samples: "+str(ReferenceSamples)+"\n")
+Outlog.write("\t Not-Reference Samples: "+str(NotReferenceSamples)+"\n")
+Outlog.write("\t Not-Alternate Samples: "+str(NotAlternateSamples)+"\n")
+Outlog.write("\t Unfiltered Samples: "+str(NotFilteredSamples)+"\n")
+Outlog.write("\n")
 Outlog.write("Variant Filters: \n")
 Outlog.write("\t MQ0/DP maximum: "+str(MQ0filter)+"\n")
 Outlog.write("\t 1000 genomes alternate allele frequency maximum: "+str(MAFfilter)+"\n")
 Outlog.write("\t GO ESP alternate allele frequency maximum: "+str(MAFfilter)+"\n")
 Outlog.write("\t Within VCF allele frequency maximum: "+str(CHTfilter)+"\n")
-
+Outlog.write("\n")
 Outlog.write("Individual Sample Filters: \n")
 Outlog.write("\t Minimum Depth of Coverage: "+str(DPfilter)+"\n")
 Outlog.write("\t Minimum Genotyping Quality(GQ): "+str(GQfilter)+"\n")
+Outlog.write("\t Minimum Heterozygous allele count: "+str(HetAllCountFilter)+"\n")
+Outlog.write("\t Minimum Homozygous allele fraction: "+str(HomAllFrac)+"\n")
 if NoPatho:
     Outlog.write("\t No Predicted Pathogenecity Filters")
 if not NoPatho:
-    Outlog.write("\t Predicted Pathogenecity Filters: at least SIFT=D or PP2=D or P or CADD >= 20; all InDels and Nonsense \n")
+    Outlog.write("\t Predicted Pathogenecity Filters: at least SIFT=D or PP2=D/P or CADD >= 15; all InDels and Nonsense \n")
+Outlog.write("\n")
 
 #Start output table
-headerlist=['Chromosome','Position','ID','REF','ALT','Gene','VariantFunction','VariantClass','AAchange','AlleleFrequency.1KG','AlleleFrequency.ESP','SIFTprediction','PP2prediction','MTprediction','CADDscore','PredictionSummary']+HomozygousSampleList+HeterozygousSampleList+ReferenceSampleList+NotReferenceSampleList+NotAlternateSampleList+NotFilteredSampleList+['FILTER', 'INFO']+HomozygousSampleList+HeterozygousSampleList+ReferenceSampleList+NotReferenceSampleList+NotAlternateSampleList+NotFilteredSampleList
+headerlist=['Chromosome','Position','ID','REF','ALT','Gene','VariantFunction','VariantClass','AAchange','AlleleFrequency.1KG','AlleleFrequency.ESP','SIFTprediction','PP2prediction','MTprediction','GERP++','CADDscore','PredictionSummary']+AlternateSampleList+HeterozygousSampleList+ReferenceSampleList+NotReferenceSampleList+NotAlternateSampleList+NotFilteredSampleList+['AlternateAlleles', 'FILTER', 'INFO']+AlternateSampleList+HeterozygousSampleList+ReferenceSampleList+NotReferenceSampleList+NotAlternateSampleList+NotFilteredSampleList
 Output.write("\t".join(headerlist)+"\n")
 
 # Read VCF file
 NameToColumn={}
 ColumnToName={}
 OrigCount=0
-FiltCount=0
+FiltCount=[0,0]
+MissenseCount=[0,0]
+NonFrameshiftCount=[0,0]
+FrameshiftCount=[0,0]
+NonsenseCount=[0,0]
+SplicingCount=[0,0]
+UnknownCount=[0,0]
 
-InDelClass=['frameshiftdeletion','frameshiftinsertion','frameshiftsubstitution','nonframeshiftdeletion']
-NonsenseClass=['nonframeshiftinsertion','nonframeshiftsubstitution']
+MissenseClass=['nonsynonymousSNV','unknown']
+NonFrameshiftClass=['nonframeshiftdeletion','nonframeshiftinsertion','nonframeshiftsubstitution']
+FrameshiftClass=['frameshiftdeletion','frameshiftinsertion','frameshiftsubstitution']
+InDelClass=NonFrameshiftClass+FrameshiftClass
+NonsenseClass=['stopgain','stoploss']
+SplicingClass=['splicing','exonic,splicing']
 
 BadSnpFilters=['QD_Bad_SNP','FS_Bad_SNP','FS_Mid_SNP;QD_Mid_SNP','SnpCluster','StandardFilters']
 BadInDFilters=['FSBias_Indel','LowQD_Indel','RPBias_Indel','SnpCluster','StandardFilters']
@@ -168,7 +198,7 @@ for line in VCF:
         for i in ColumnAndNumber:
             NameToColumn[i[1]]=i[0]
             ColumnToName[i[0]]=i[1]
-        HomozygousColumnNumber=[ NameToColumn[i] for i in HomozygousSampleList ]
+        AlternateColumnNumber=[ NameToColumn[i] for i in AlternateSampleList ]
         HeterozygousColumnNumber=[ NameToColumn[i] for i in HeterozygousSampleList ]
         ReferenceColumnNumber=[ NameToColumn[i] for i in ReferenceSampleList ]
         NotReferenceColumnNumber=[ NameToColumn[i] for i in NotReferenceSampleList ]
@@ -186,10 +216,11 @@ for line in VCF:
         linelist=line.split("\t")
         SampleNum=len(linelist)-9
         
-        REFlist=linelist[4]
-        REFlist=REFlist.split(",")
+        REFstring=linelist[4]
+        REFlist=REFstring.split(",")
         
         VariantFilter=linelist[6]
+        VariantFilterList=VariantFilter.split(";")
         INFOstring=linelist[7]
         INFOcolumnList=INFOstring.split(";")
         INFOdict={}
@@ -228,6 +259,8 @@ for line in VCF:
         MTscoreList=MTscoreList.split(',')
         MTpredictionList=INFOdict.get('MutTprd','.')
         MTpredictionList=MTpredictionList.split(',')
+        GERPscoreList=str(INFOdict.get('GERP','.'))
+        GERPscoreList=GERPscoreList.split(',')
         CADDscoreList=str(INFOdict.get('CADDphred','.'))
         CADDscoreList=CADDscoreList.split(',')
         
@@ -239,7 +272,7 @@ for line in VCF:
         AltNum=len(AltAlls)
         
         # Get Sample Qualities
-        HomozygousQualityString=[ linelist[i].strip() for i in HomozygousColumnNumber ]
+        AlternateQualityString=[ linelist[i].strip() for i in AlternateColumnNumber ]
         HeterozygousQualityString=[ linelist[i].strip() for i in HeterozygousColumnNumber ]
         ReferenceQualityString=[ linelist[i].strip() for i in ReferenceColumnNumber ]
         NotReferenceQualityString=[ linelist[i].strip() for i in NotReferenceColumnNumber ]
@@ -247,7 +280,7 @@ for line in VCF:
         NotFilteredQualityString=[ linelist[i].strip() for i in NotFilteredColumnNumber ]
         
         # Split Individual Quality strings for each sample
-        HomozygousQualityList=[ i.split(':') for i in HomozygousQualityString ]
+        AlternateQualityList=[ i.split(':') for i in AlternateQualityString ]
         HeterozygousQualityList=[ i.split(':') for i in HeterozygousQualityString ]
         ReferenceQualityList=[ i.split(':') for i in ReferenceQualityString ]
         NotReferenceQualityList=[ i.split(':') for i in NotReferenceQualityString ]
@@ -255,7 +288,7 @@ for line in VCF:
         NotFilteredQualityList=[ i.split(':') for i in NotFilteredQualityString ]
         
         # Define GT
-        HomozygousGT=[ HomozygousQualityList[i][0] for i in range(0,len(HomozygousQualityString)) ]
+        AlternateGT=[ AlternateQualityList[i][0] for i in range(0,len(AlternateQualityString)) ]
         HeterozygousGT=[ HeterozygousQualityList[i][0] for i in range(0,len(HeterozygousQualityString)) ]
         ReferenceGT=[ ReferenceQualityList[i][0] for i in range(0,len(ReferenceQualityString)) ]
         NotReferenceGT=[ NotReferenceQualityList[i][0] for i in range(0,len(NotReferenceQualityString)) ]
@@ -270,23 +303,22 @@ for line in VCF:
          
         # Check if all genotypes are present
         PassGeno=False
-        if './.' not in HomozygousGT and './.' not in HeterozygousGT and './.' not in ReferenceGT and './.' not in NotReferenceGT and './.' not in NotAlternateGT:
+        if './.' not in AlternateGT and './.' not in HeterozygousGT and './.' not in ReferenceGT and './.' not in NotReferenceGT and './.' not in NotAlternateGT:
             PassGeno=True
         
         # Check if Variant class passes
         PassFunction=False
-        if VariantFunction=='exonic' or VariantFunction=='splicing' or VariantFunction=="exonic,splicing" or VariantFunction=='none':
+        if VariantFunction=='exonic' or VariantFunction in SplicingClass or VariantFunction=='none':
             PassFunction=True
-        
         
         if PassGeno and PassFunction and PassMQ :
             
             # Define DP
-            HomozygousDP=[ str(HomozygousQualityList[i][2]) for i in range(0,len(HomozygousQualityString)) ]
-            for i in range(0,len(HomozygousDP)):
-                if HomozygousDP[i]==".":
-                    HomozygousDP[i]="0"
-                HomozygousDP[i]=float(HomozygousDP[i])
+            AlternateDP=[ str(AlternateQualityList[i][2]) for i in range(0,len(AlternateQualityString)) ]
+            for i in range(0,len(AlternateDP)):
+                if AlternateDP[i]==".":
+                    AlternateDP[i]="0"
+                AlternateDP[i]=float(AlternateDP[i])
             HeterozygousDP=[ str(HeterozygousQualityList[i][2]) for i in range(0,len(HeterozygousQualityString)) ]
             for i in range(0,len(HeterozygousDP)):
                 if HeterozygousDP[i]==".":
@@ -298,9 +330,18 @@ for line in VCF:
                     ReferenceDP[i]="0"
                 ReferenceDP[i]=float(ReferenceDP[i])
             NotReferenceDP=[ float(NotReferenceQualityList[i][2]) for i in range(0,len(NotReferenceQualityString)) ]
+            for i in range(0,len(NotReferenceDP)):
+                if NotReferenceDP[i]==".":
+                    NotReferenceDP[i]="0"
+                NotReferenceDP[i]=float(NotReferenceDP[i])
             NotAlternateDP=[ float(NotAlternateQualityList[i][2]) for i in range(0,len(NotAlternateQualityString)) ]
+            for i in range(0,len(NotAlternateDP)):
+                if NotAlternateDP[i]==".":
+                    NotAlternateDP[i]="0"
+                NotAlternateDP[i]=float(NotAlternateDP[i])
+            
             # Define GQ
-            HomozygousGQ=[ float(HomozygousQualityList[i][3]) for i in range(0,len(HomozygousQualityString)) ]
+            AlternateGQ=[ float(AlternateQualityList[i][3]) for i in range(0,len(AlternateQualityString)) ]
             HeterozygousGQ=[ float(HeterozygousQualityList[i][3]) for i in range(0,len(HeterozygousQualityString)) ]
             ReferenceGQ=[ float(ReferenceQualityList[i][3]) for i in range(0,len(ReferenceQualityString)) ]
             NotReferenceGQ=[ float(NotReferenceQualityList[i][3]) for i in range(0,len(NotReferenceQualityString)) ]
@@ -308,22 +349,54 @@ for line in VCF:
             
             # Check to see if depth passes
             PassDP=False
-            if all(i >= DPfilter for i in HomozygousDP) and all(i >= DPfilter for i in HeterozygousDP) and all(i >= DPfilter for i in ReferenceDP):
+            if all(i >= DPfilter for i in AlternateDP) and all(i >= DPfilter for i in HeterozygousDP) and all(i >= DPfilter for i in ReferenceDP):
                 PassDP=True
             # Check to see if genotype quality passes
             PassGQ=False
-            if all(i >= GQfilter for i in HomozygousGQ) and all(i >= GQfilter for i in HeterozygousGQ) and all(i >= GQfilter for i in ReferenceGQ):
+            if all(i >= GQfilter for i in AlternateGQ) and all(i >= GQfilter for i in HeterozygousGQ) and all(i >= GQfilter for i in ReferenceGQ):
                 PassGQ=True
             # Check to see if genotypes pass, iterate across multiple alt alleles if necessary
             AltRng=range(0, AltNum)
             for altnum in AltRng:
+                
+                
+                # Define Allele Count
+                
+                AlternateAC=[ AlternateQualityList[i][1] for i in range(0,len(AlternateQualityString)) ]
+                AlternateAC=[ i.split(',') for i in AlternateAC ]
+                AlternateTotal=[ sum(int(j) for j in i)  for i in AlternateAC ]
+                AlternateAC=[ int(i[altnum+1]) for i in AlternateAC ]
+                AlternateAAF=[ float(i)/float(max(j,1)) for i,j in zip(AlternateAC,AlternateTotal) ] #if Total is 0 then python throws and error, so set to 0, this will still leave the AAF as 0 as if the total is 0 then the AC must also be 0
+                
+                HeterozygousAC=[ HeterozygousQualityList[i][1] for i in range(0,len(HeterozygousQualityString)) ]
+                HeterozygousAC=[ i.split(',') for i in HeterozygousAC ]
+                HeterozygousAC=[ int(i[altnum+1]) for i in HeterozygousAC ]
+                
+                ReferenceAC=[ ReferenceQualityList[i][1] for i in range(0,len(ReferenceQualityString)) ]
+                ReferenceAC=[ i.split(',') for i in ReferenceAC ]
+                ReferenceTotal=[ sum(int(j) for j in i)  for i in ReferenceAC ]
+                ReferenceAC=[ int(i[0]) for i in ReferenceAC ]
+                ReferenceAAF=[ float(i)/float(max(j,1)) for i,j in zip(ReferenceAC,ReferenceTotal) ]
+                
+                NotReferenceAC=[ NotReferenceQualityList[i][1] for i in range(0,len(NotReferenceQualityString)) ]
+                NotReferenceAC=[ i.split(',') for i in NotReferenceAC ]
+                NotReferenceTotal=[ sum(int(j) for j in i)  for i in NotReferenceAC ]
+                NotReferenceAC=[ int(i[altnum+1]) for i in NotReferenceAC ]
+                NotReferenceAAF=[ float(i)/float(max(j,1)) for i,j in zip(NotReferenceAC,NotReferenceTotal) ]
+                
+                NotAlternateAC=[ NotAlternateQualityList[i][1] for i in range(0,len(NotAlternateQualityString)) ]
+                NotAlternateAC=[ i.split(',') for i in NotAlternateAC ]
+                NotAlternateTotal=[ sum(int(j) for j in i)  for i in NotAlternateAC ]
+                NotAlternateAAC=[ int(i[altnum+1]) for i in NotAlternateAC ]
+                NotAlternateRAC=[ int(i[0]) for i in NotAlternateAC ]
+                NotAlternateRAF=[ float(i)/float(max(j,1)) for i,j in zip(NotAlternateRAC,NotAlternateTotal) ]
+                
                 #check variant class
                 PassClass=False
                 cltnum=min(len(VariantClassList)-1, altnum)
                 VariantClass=str(VariantClassList[cltnum])
                 if VariantClass != 'synonymousSNV':
                     PassClass=True
-                REF=str(REFlist[altnum])
                 
                 # Check if KG passes threshold
                 PassKG=False
@@ -357,8 +430,35 @@ for line in VCF:
                 #check GT
                 PassGT=False
                 AltAll=str(altnum+1)
-                if all(i.count(AltAll)==2 for i in HomozygousGT) and all(i.count(AltAll)==1 for i in HeterozygousGT) and all(i.count(AltAll)==0 for i in ReferenceGT) and all(i.count(AltAll)>0 for i in NotReferenceGT) and all(i.count(AltAll)<2 for i in NotAlternateGT):
+                if all(i.count(AltAll)==2 for i in AlternateGT) and all(i.count(AltAll)==1 for i in HeterozygousGT) and all(i.count(AltAll)==0 for i in ReferenceGT) and all(i.count(AltAll)>0 for i in NotReferenceGT) and all(i.count(AltAll)<2 for i in NotAlternateGT):
                     PassGT=True
+                
+                #Check alternate allele counts and fractions
+                passBasicACF=False
+                if all( i >= HetAllCountFilter for i in HeterozygousAC) and all( i >= HomAllFrac for i in AlternateAAF) and all( i >= HomAllFrac for i in ReferenceAAF):
+                    passBasicACF=True
+                
+                passNotRefAFC=False
+                for NotRefGT in NotReferenceGT:
+                    if NotRefGT.count(AltAll) == 1 and NotReferenceAC >= HetAllCountFilter:
+                        passNotRefAFC=True
+                    if NotRefGT.count(AltAll) == 2 and NotReferenceAAF >= AlternateAAF:
+                        passNotRefAFC=True
+                if not NotReferenceGT:
+                    passNotRefAFC=True
+                
+                passNotAltAFC=False
+                for NotAltGT in NotAlternateGT:
+                    if NotAltGT.count(AltAll) == 1 and NotAlternateAAC >= HetAllCountFilter:
+                        passNotAltAFC=True
+                    if NotAltGT.count(AltAll) == 0 and NotAlternateRAF >= AlternateAAF:
+                        passNotAltAFC=True
+                if not NotAlternateGT:
+                    passNotAltAFC=True
+                
+                PassAFC=False
+                if passBasicACF and passNotRefAFC and passNotAltAFC:
+                    PassAFC=True
                 
                 PassPatho=False
                 cltnum=min(len(SIFTpredictionList)-1, altnum)
@@ -373,29 +473,33 @@ for line in VCF:
                     CADDscoretest=float(CADDscore)
                 
                 PathoLevel="Low"
-                if SIFTprediction=="D" or PP2prediction=="D" or PP2prediction=="P" or CADDscoretest>=15:
+                if VariantClass in MissenseClass and NoPatho:
+                    PassPatho=True
+                if VariantClass in MissenseClass and (SIFTprediction=="D" or PP2prediction=="D" or PP2prediction=="P" or CADDscoretest>=15):
                     PathoLevel="Med"
                     PassPatho=True
-                if SIFTprediction=="D" and PP2prediction=="D":
+                if VariantClass in MissenseClass and (SIFTprediction=="D" and PP2prediction=="D"):
                     PathoLevel="High"
                     PassPatho=True
-                if CADDscoretest>=25:
+                if VariantClass in MissenseClass and (CADDscoretest>=25):
                     PathoLevel="High"
                     PassPatho=True
-                if VariantFunction=='splicing' or VariantFunction=="exonic,splicing":
+                if VariantFunction in SplicingClass:
                     PathoLevel="High"
                     PassPatho=True
                 if VariantClass in InDelClass or VariantClass in NonsenseClass:
                     PathoLevel="High"
                     PassPatho=True
-                if NoPatho:
-                    PassPatho=True
+                
                 
                 PassFilter=False
-                if VariantClass in InDelClass and VariantFilter not in BadInDFilters:
+                if VariantClass in InDelClass and all( str(i) not in BadInDFilters for i in VariantFilterList):
                     PassFilter=True
-                if VariantClass not in InDelClass and VariantFilter not in BadSnpFilters:
+                if VariantClass not in InDelClass and all( str(i) not in BadSnpFilters for i in VariantFilterList):
                     PassFilter=True
+                if NoQualityFilter:
+                    PassFilter=True
+
                 
                 cltnum=min(len(AAchangeList)-1, altnum)
                 AAchange=AAchangeList[cltnum]
@@ -403,17 +507,44 @@ for line in VCF:
                 MTprediction=MTpredictionList[cltnum]
                 #output
                 if DeBug:
-                    OutPass.write("\t"+linelist[0]+" "+linelist[1]+" "+linelist[3]+" "+linelist[4]+" "+str(altnum)+" "+str(PassKG)+" "+str(PassESP)+" "+str(PassVCF)+" "+str(PassMQ)+" "+str(PassFunction)+" "+str(PassClass)+" "+str(PassGT)+" "+str(PassDP)+" "+str(PassGQ)+" "+str(PassPatho)+" "+str(PassFilter)+"\n")
+                    OutPass.write("\t"+linelist[0]+" "+linelist[1]+" "+linelist[3]+" "+linelist[4]+" "+str(altnum)+" "+str(PassKG)+" "+str(PassESP)+" "+str(PassVCF)+" "+str(PassMQ)+" "+str(PassFunction)+" "+str(PassClass)+" "+str(PassGT)+" "+str(PassDP)+" "+str(PassGQ)+" "+str(PassPatho)+" "+str(PassFilter)+" "+str(PassAFC)+"\n")
                 # If all pass then output line
-                if PassKG and PassESP and PassVCF and PassGT and PassDP and PassGQ and PassPatho and PassFilter:
-                    OutputList=linelist[0:4]+[REF,GeneName,VariantFunction,VariantClass,AAchange,KGFreq,ESPFreq,SIFTprediction,PP2prediction,MTprediction,CADDscore,PathoLevel]+HomozygousGT+HeterozygousGT+ReferenceGT+NotReferenceGT+NotAlternateGT+NotFilteredGT+[VariantFilter,INFOstring]+HomozygousQualityString+HeterozygousQualityString+ReferenceQualityString+NotReferenceQualityString+NotAlternateQualityString+NotFilteredQualityString
+                if PassKG and PassESP and PassVCF and PassGT and PassDP and PassGQ and PassPatho and PassFilter and PassAFC:
+                    REF=str(REFlist[altnum])
+                    cltnum=min(len(GERPscoreList)-1, altnum)
+                    GERPscore=str(GERPscoreList[cltnum])
+                    OutputList=linelist[0:4]+[REF,GeneName,VariantFunction,VariantClass,AAchange,KGFreq,ESPFreq,SIFTprediction,PP2prediction,MTprediction,GERPscore,CADDscore,PathoLevel]+AlternateGT+HeterozygousGT+ReferenceGT+NotReferenceGT+NotAlternateGT+NotFilteredGT+[REFstring,VariantFilter,INFOstring]+AlternateQualityString+HeterozygousQualityString+ReferenceQualityString+NotReferenceQualityString+NotAlternateQualityString+NotFilteredQualityString
                     OutputList= [ str(i) for i in OutputList ]
                     OutputString="\t".join(OutputList)
                     Output.write(OutputString+"\n")
                     Outvcf.write(line)
-                    FiltCount=FiltCount+1
-Outlog.write("Number of variants in original VCF: "+str(OrigCount)+"\n")
-Outlog.write("Number of variants selected: "+str(FiltCount)+"\n")
+                    cntnum=0
+                    if PathoLevel=="High":
+                        cntnum=1
+                    FiltCount[cntnum] = FiltCount[cntnum] + 1
+                    if VariantClass in MissenseClass:
+                        MissenseCount[cntnum] = MissenseCount[cntnum] + 1
+                    if VariantClass in NonFrameshiftClass:
+                        NonFrameshiftCount[cntnum] = NonFrameshiftCount[cntnum] + 1
+                    if VariantClass in FrameshiftClass:
+                        FrameshiftCount[cntnum] = FrameshiftCount[cntnum] + 1
+                    if VariantClass in NonsenseClass:
+                        NonsenseCount[cntnum] = NonsenseCount[cntnum] + 1
+                    if VariantFunction in SplicingClass:
+                        SplicingCount[cntnum] = SplicingCount[cntnum] + 1
+                    if VariantClass=="Unknown":
+                        UnknownCount[cntnum] = UnknownCount[cntnum] + 1
+Outlog.write("---------------------------------------------------------------------\n")
+Outlog.write("Results: \n")
+Outlog.write("\t Number of variants in original VCF: "+str(OrigCount)+"\n")
+Outlog.write("\t Number of variants selected (Med/High/Total): "+str(FiltCount[0])+"/"+str(FiltCount[1])+"/"+str(sum(FiltCount))+"\n")
+Outlog.write("\t Number of Missense variants selected (Med/High/Total): "+str(MissenseCount[0])+"/"+str(MissenseCount[1])+"/"+str(sum(MissenseCount))+"\n")
+Outlog.write("\t Number of Nonsense variants selected (Med/High/Total): "+str(NonsenseCount[0])+"/"+str(NonsenseCount[1])+"/"+str(sum(NonsenseCount))+"\n")
+Outlog.write("\t Number of NonFrameshift InDels selected (Med/High/Total): "+str(NonFrameshiftCount[0])+"/"+str(NonFrameshiftCount[1])+"/"+str(sum(NonFrameshiftCount))+"\n")
+Outlog.write("\t Number of Frameshift InDels selected (Med/High/Total): "+str(FrameshiftCount[0])+"/"+str(FrameshiftCount[1])+"/"+str(sum(FrameshiftCount))+"\n")
+Outlog.write("\t Number of Splice site variants selected (Med/High/Total): "+str(SplicingCount[0])+"/"+str(SplicingCount[1])+"/"+str(sum(SplicingCount))+"\n")
+Outlog.write("\t Number of Unknown function variants selected (Med/High/Total): "+str(UnknownCount[0])+"/"+str(UnknownCount[1])+"/"+str(sum(UnknownCount))+"\n")
+Outlog.write("\n")
 TimeNow=str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
 Outlog.write("Filtering Finished: "+TimeNow+"\n")
 print "Filtering finished "+TimeNow
