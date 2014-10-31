@@ -7,12 +7,15 @@ source /etc/profile.d/sge.sh  # SGE commands from within node
 source /ifs/home/c2b2/af_lab/ads2202/.bash_profile
 fi
 
+BadDeN=false
 #get arguments
-while getopts v:t:n: opt; do
+while getopts v:t:n:p:D opt; do
     case "$opt" in
         v) VcfFil="$OPTARG";;
         t) TrioFil="$OPTARG";;
         n) DirPre="$OPTARG";;
+        p) AddPrm="$OPTARG";;
+        D) BadDeN="true";;
         #H) echo "$usage"; exit;;
     esac
 done
@@ -39,56 +42,50 @@ cd $DirNam
 
 #De novo
 echo "De Novo Filtering.."
-CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.denovo --het $Proband --ref $Father,$Mother --maf 0.001 -p"
-if [[ -n $Extras ]]; then
-    CMD=$CMD" --unfl $Extras"
-fi
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.denovo --het $Proband --ref $Father,$Mother"
+if [[ "$BadDeN" == "false" ]]; then CMD=$CMD" -D"; fi #otherwise de novos will be run with default filters
+if [[ -n $Extras ]]; then CMD=$CMD" --unfl $Extras"; fi
+if [[ ! -z $AddPrm ]]; then CMD=$CMD" $AddPrm"; fi
 echo $CMD
 eval $CMD
 #Autosomal Recessive
 echo "Autosomal Recessive.."
-CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AR --alt $Proband --het $Father,$Mother -P"
-if [[ -n $Extras ]]; then
-    CMD=$CMD" --unfl $Extras"
-fi
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AR --alt $Proband --het $Father,$Mother"
+if [[ -n $Extras ]]; then CMD=$CMD" --unfl $Extras"; fi
+if [[ ! -z $AddPrm ]]; then CMD=$CMD" $AddPrm"; fi
 echo $CMD
 eval $CMD
 #X linked - male proband
 echo "X linked - male proband.."
-CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.X-linked --alt $Proband --het $Mother --ref $Father -X  -P"
-if [[ -n $Extras ]]; then
-    CMD=$CMD" --unfl $Extras"
-fi
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.X-linked --alt $Proband --het $Mother --ref $Father -X"
+if [[ -n $Extras ]]; then CMD=$CMD" --unfl $Extras"; fi
+if [[ ! -z $AddPrm ]]; then CMD=$CMD" $AddPrm"; fi
 echo $CMD
 eval $CMD
 #Autosomal Dominant - paternal inheritance
 echo "Autosomal Dominant - paternal inheritance.."
-CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AD-paternal  --het $Proband,$Father --ref $Mother  -P"
-if [[ -n $Extras ]]; then
-    CMD=$CMD" --unfl $Extras"
-fi
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AD-paternal  --het $Proband,$Father --ref $Mother"
+if [[ -n $Extras ]]; then CMD=$CMD" --unfl $Extras"; fi
+if [[ ! -z $AddPrm ]]; then CMD=$CMD" $AddPrm"; fi
 echo $CMD
 eval $CMD
 #Autosomal Dominant - maternal inheritance
 echo "Autosomal Dominant - maternal inheritance.."
-CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AD-maternal  --het $Proband,$Mother --ref $Father -P"
-if [[ -n $Extras ]]; then
-    CMD=$CMD" --unfl $Extras"
-fi
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AD-maternal  --het $Proband,$Mother --ref $Father"
+if [[ -n $Extras ]]; then CMD=$CMD" --unfl $Extras"; fi
+if [[ ! -z $AddPrm ]]; then CMD=$CMD" $AddPrm"; fi
 echo $CMD
 eval $CMD
 #compound heterozygous
 echo "Compund heterozygous.."
-CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.tempheppat  --het $Proband,$Father --ref $Mother -p"
-if [[ -n $Extras ]]; then
-    CMD=$CMD" --unfl $Extras"
-fi
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.tempheppat  --het $Proband,$Father --ref $Mother"
+if [[ -n $Extras ]]; then CMD=$CMD" --unfl $Extras"; fi
+if [[ ! -z $AddPrm ]]; then CMD=$CMD" $AddPrm"; fi
 echo $CMD
 eval $CMD
-CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.temphepmat  --het $Proband,$Mother --ref $Father -p"
-if [[ -n $Extras ]]; then
-    CMD=$CMD" --unfl $Extras"
-fi
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.temphepmat  --het $Proband,$Mother --ref $Father"
+if [[ -n $Extras ]]; then CMD=$CMD" --unfl $Extras"; fi
+if [[ ! -z $AddPrm ]]; then CMD=$CMD" $AddPrm"; fi
 echo $CMD
 eval $CMD
 R --vanilla <<RSCRIPT
