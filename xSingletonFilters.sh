@@ -34,10 +34,10 @@ cd $DirNam
 
 #Autosomal Recessive
 echo "Autosomal Recessive.."
-$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AR --alt $Proband -P
+$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AR --alt $Proband
 #Autosomal Dominant
 echo "Autosomal Dominant.."
-$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AD  --het $Proband -P
+$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AD  --het $Proband
 R --vanilla <<RSCRIPT
 options(stringsAsFactors=F)
 
