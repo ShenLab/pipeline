@@ -23,7 +23,7 @@ options(stringsAsFactors=F)
 mathet <- read.delim("$PatHet")
 pathet <- read.delim("$MatHet")
 
-mathet <- mathet[mathet[,"Gene"]%in%pathet[,"Gene"],]
+mathet <- mathet[mathet[,"Gene"]%in%pathet[,"Gene"],match(colnames(mathet), colnames(pathet))]
 pathet <- pathet[pathet[,"Gene"]%in%mathet[,"Gene"],]
 
 comphet <- rbind(mathet, pathet)
