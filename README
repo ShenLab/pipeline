@@ -1,3 +1,3 @@
 
 
-The scripts are used to filter variants according to different inheritance models. The base python script filters a vcf file using the genotypes of provided individuals, allele frequencies, and various quality metrics. The bash scripts are wrappers that apply the custom filtering for different pedigree types.
+The scripts are used to filter variants according to different inheritance models. The base python script filters a vcf file using the genotypes of provided individuals, allele frequencies, and various quality metrics. The bash scripts are wrappers that apply the custom filtering python script for different pedigree types.
