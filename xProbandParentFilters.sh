@@ -37,20 +37,20 @@ cd $DirNam
 
 #Autosomal Recessive
 echo "Autosomal Recessive.."
-CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AR --alt $Proband --het $Parent -P"
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AR --alt $Proband --het $Parent"
 echo $CMD
 eval $CMD
 #Autosomal Dominant
 echo "Autosomal Dominant.."
-CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AD  --het $Proband --ref $Parent -P"
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.AD  --het $Proband --ref $Parent"
 echo $CMD
 eval $CMD
 #compound heterozygous
 echo "Compund heterozygous.."
-CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.tempheppat  --het $Proband,$Parent -p"
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.tempheppat  --het $Proband,$Parent"
 echo $CMD
 eval $CMD
-CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.temphepmat  --het $Proband --ref $Parent -p"
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.temphepmat  --het $Proband --ref $Parent"
 echo $CMD
 eval $CMD
 R --vanilla <<RSCRIPT
