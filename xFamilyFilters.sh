@@ -34,14 +34,10 @@ mkdir -p $DirNam
 cd $DirNam
 
 if [[ $ModNam == *X* ]]; then FilPrm=$FilPrm" -X"; fi
+if [[ $ModNam == *ovo* ]]; then FilPrm=$FilPrm" -D"; fi
 
-#De novo
 echo "Filtering.."
-CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.$ModNam $FilPrm -P"
+CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.$ModNam $FilPrm"
 echo $CMD
 eval $CMD
 
-#echo "Filtering.."
-#CMD="$FiltScrDir/ExmFilt.CustomGenotype.py -v $VcfFil -o $FamNam.$ModNam.relaxed $FilPrm -p"
-#echo $CMD
-#eval $CMD
