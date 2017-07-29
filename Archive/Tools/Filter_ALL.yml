@@ -1,0 +1,44 @@
+all values are not filtered if at that value
+gene_filter:
+exon: true
+exon_flag:
+- splicing
+- exonic
+- 'exonic,splicing'
+max_cohort_AC: 30
+max_cohort_AF: 0.05
+max_population_AF: 
+# only consider freq in ExAC 
+ESP: 0.001
+1KG: 0.001
+ExAC: 0.001
+excluded_gene:
+- MUC
+- HLA
+excluded_chrom:
+- GL
+max_Multiallelic: 3
+max_seqdup: 0.95
+# min_map: 1
+# rmsk: true
+
+reads_filter:
+# proband filter
+min_proband_AD: 5
+min_proband_PL: 60
+min_proband_alt_freq_tier1: 0.1 # AD < 10
+min_proband_alt_freq_tier2: 0.1 # AD >= 10
+# parents filter
+#min_parents_DP: 10
+#min_parents_GQ: 30
+#max_parents_alt_freq: 1.00
+
+snps:
+max_FS: 25
+min_QD: 2
+
+indels:
+max_FS: 25
+min_QD: 1
+min_ReadPosRankSum: -3
+

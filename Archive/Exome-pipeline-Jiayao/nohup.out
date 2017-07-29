@@ -1,0 +1,123 @@
+Start Download: refseq hg19 gene reference - Fri Jul 21 14:47:28 EDT 2017
+perl annotate_variation.pl -downdb -buildver hg19 -webfrom annovar refGene /home/local/users/jw/resources/ANNOVAR_DB/ perl annotate_variation.pl -downdb -buildver hg38 -webfrom annovar refGene /home/local/users/jw/resources/ANNOVAR_DB/
+Syntax error
+Usage:
+     annotate_variation.pl [arguments] <query-file|table-name> <database-location>
+
+     Optional arguments:
+            -h, --help                      print help message
+            -m, --man                       print complete documentation
+            -v, --verbose                   use verbose output
+        
+            Arguments to download databases or perform annotations
+                --downdb                    download annotation database
+                --geneanno                  annotate variants by gene-based annotation (infer functional consequence on genes)
+                --regionanno                annotate variants by region-based annotation (find overlapped regions in database)
+                --filter                    annotate variants by filter-based annotation (find identical variants in database)
+        
+            Arguments to control input and output
+                --outfile <file>            output file prefix
+                --webfrom <string>          specify the source of database (ucsc or annovar or URL) (downdb operation)
+                --dbtype <string>           specify database type
+                --buildver <string>         specify genome build version (default: hg18 for human)
+                --time                      print out local time during program run
+                --comment                   print out comment line (those starting with #) in output files 
+                --exonsort                  sort the exon number in output line (gene-based annotation)
+                --transcript_function       use transcript name rather than gene name (gene-based annotation)
+                --hgvs                      use HGVS format for exonic annotation (c.122C>T rather than c.C122T) (gene-based annotation)
+                --separate                  separately print out all functions of a variant in several lines (gene-based annotation)
+                --seq_padding               create a new file with cDNA sequence padded by this much either side (gene-based annotation)
+                --(no)firstcodondel         treat first codon deletion as wholegene deletion (default: ON) (gene-based annotation)
+                --aamatrix <file>           specify an amino acid substitution matrix file (gene-based annotation)
+                --colsWanted <string>       specify which columns to output by comma-delimited numbers (region-based annotation)
+                --scorecolumn <int>         the column with scores in DB file (region-based annotation)
+                --poscolumn <string>        the comma-delimited column with position information in DB file (region-based annotation)
+                --gff3dbfile <file>         specify a DB file in GFF3 format (region-based annotation)
+                --gff3attribute             output all fields in GFF3 attribute (default: ID and score only)
+                --bedfile <file>            specify a DB file in BED format file (region-based annotation)
+                --genericdbfile <file>      specify a DB file in generic format (filter-based annotation)
+                --vcfdbfile <file>          specify a DB file in VCF format (filter-based annotation)
+                --otherinfo                 print out additional columns in database file (filter-based annotation)
+                --infoasscore               use INFO field in VCF file as score in output (filter-based annotation)
+                --idasscore                 use ID field in VCF file as score in output (filter-based annotation)
+                --infosep                   use # rather than , to separate fields when -otherinfo is used
+
+        
+            Arguments to fine-tune the annotation procedure
+                --batchsize <int>           batch size for processing variants per batch (default: 5m)
+                --genomebinsize <int>       bin size to speed up search (default: 100k for -geneanno, 10k for -regionanno)
+                --expandbin <int>           check nearby bin to find neighboring genes (default: 2m/genomebinsize)
+                --neargene <int>            distance threshold to define upstream/downstream of a gene
+                --exonicsplicing            report exonic variants near exon/intron boundary as 'exonic;splicing' variants
+                --score_threshold <float>   minimum score of DB regions to use in annotation
+                --normscore_threshold <float> minimum normalized score of DB regions to use in annotation
+                --reverse                   reverse directionality to compare to score_threshold
+                --rawscore                  output includes the raw score (not normalized score) in UCSC Browser Track
+                --minqueryfrac <float>      minimum percentage of query overlap to define match to DB (default: 0)
+                --splicing_threshold <int>  distance between splicing variants and exon/intron boundary (default: 2)
+                --indel_splicing_threshold <int>    if set, use this value for allowed indel size for splicing variants (default: --splicing_threshold)
+                --maf_threshold <float>     filter 1000G variants with MAF above this threshold (default: 0)
+                --sift_threshold <float>    SIFT threshold for deleterious prediction for -dbtype avsift (default: 0.05)
+                --precedence <string>       comma-delimited to specify precedence of variant function (default: exonic>intronic...)
+                --indexfilter_threshold <float>     controls whether filter-based annotation use index if this fraction of bins need to be scanned (default: 0.9)
+                --thread <int>              use multiple threads for filter-based annotation
+                --maxgenethread <int>       max number of threads for gene-based annotation (default: 6)
+                --mingenelinecount <int>    min line counts to enable threaded gene-based annotation (default: 1000000)
+       
+           Arguments to control memory usage
+                --memfree <int>             ensure minimum amount of free system memory (default: 0)
+                --memtotal <int>            limit total amount of memory used by ANNOVAR (default: 0, unlimited, in the order of kb)
+                --chromosome <string>       examine these specific chromosomes in database file
+            
+
+     Function: annotate a list of genetic variants against genome annotation 
+     databases stored at local disk.
+ 
+     Example: #download annotation databases from ANNOVAR or UCSC and save to humandb/ directory
+              annotate_variation.pl -downdb -webfrom annovar refGene humandb/
+              annotate_variation.pl -buildver mm9 -downdb refGene mousedb/
+              annotate_variation.pl -downdb -webfrom annovar esp6500siv2_all humandb/
+        
+              #gene-based annotation of variants in the varlist file (by default --geneanno is ON)
+              annotate_variation.pl -buildver hg19 ex1.avinput humandb/
+          
+              #region-based annotate variants
+              annotate_variation.pl -regionanno -buildver hg19 -dbtype cytoBand ex1.avinput humandb/
+              annotate_variation.pl -regionanno -buildver hg19 -dbtype gff3 -gff3dbfile tfbs.gff3 ex1.avinput humandb/
+          
+              #filter rare or unreported variants (in 1000G/dbSNP) or predicted deleterious variants
+              annotate_variation.pl -filter -dbtype 1000g2015aug_all -maf 0.01 ex1.avinput humandb/
+              annotate_variation.pl -filter -buildver hg19 -dbtype snp138 ex1.avinput humandb/
+              annotate_variation.pl -filter -dbtype dbnsfp30a -otherinfo ex1.avinput humandb/
+ 
+     Version: $Date: 2017-07-17 01:17:04 -0400 (Mon, 17 Jul 2017) $
+
+Error during Downloading refseq hg19 gene reference
+Start Download: refseq hg19 gene reference - Fri Jul 21 14:48:13 EDT 2017
+perl annotate_variation.pl -downdb -buildver hg19 -webfrom annovar refGene /home/local/users/jw/resources/ANNOVAR_DB/ ; perl annotate_variation.pl -downdb -buildver hg38 -webfrom annovar refGene /home/local/users/jw/resources/ANNOVAR_DB/
+NOTICE: Web-based checking to see whether ANNOVAR new version is available ... Done
+NOTICE: Downloading annotation database http://www.openbioinformatics.org/annovar/download/hg19_refGene.txt.gz ... OK
+NOTICE: Downloading annotation database http://www.openbioinformatics.org/annovar/download/hg19_refGeneMrna.fa.gz ... OK
+NOTICE: Downloading annotation database http://www.openbioinformatics.org/annovar/download/hg19_refGeneVersion.txt.gz ... OK
+NOTICE: Uncompressing downloaded files
+NOTICE: Finished downloading annotation files for hg19 build version, with files saved at the '/home/local/users/jw/resources/ANNOVAR_DB' directory
+NOTICE: Web-based checking to see whether ANNOVAR new version is available ... Done
+NOTICE: Downloading annotation database http://www.openbioinformatics.org/annovar/download/hg38_refGene.txt.gz ... OK
+NOTICE: Downloading annotation database http://www.openbioinformatics.org/annovar/download/hg38_refGeneMrna.fa.gz ... OK
+NOTICE: Downloading annotation database http://www.openbioinformatics.org/annovar/download/hg38_refGeneVersion.txt.gz ... OK
+NOTICE: Uncompressing downloaded files
+NOTICE: Finished downloading annotation files for hg38 build version, with files saved at the '/home/local/users/jw/resources/ANNOVAR_DB' directory
+Finish Download: refseq hg19 gene reference - Fri Jul 21 14:48:31 EDT 2017
+Start Download: Multi-Scores - Fri Jul 21 14:48:57 EDT 2017
+perl annotate_variation.pl -downdb -buildver hg19 -webfrom annovar dbnsfp33a /home/local/users/jw/resources/ANNOVAR_DB/ ; perl annotate_variation.pl -downdb -buildver hg38 -webfrom annovar dbnsfp33a /home/local/users/jw/resources/ANNOVAR_DB/
+NOTICE: Web-based checking to see whether ANNOVAR new version is available ... Done
+NOTICE: Downloading annotation database http://www.openbioinformatics.org/annovar/download/hg19_dbnsfp33a.txt.gz ... OK
+NOTICE: Downloading annotation database http://www.openbioinformatics.org/annovar/download/hg19_dbnsfp33a.txt.idx.gz ... OK
+NOTICE: Uncompressing downloaded files
+NOTICE: Finished downloading annotation files for hg19 build version, with files saved at the '/home/local/users/jw/resources/ANNOVAR_DB' directory
+NOTICE: Web-based checking to see whether ANNOVAR new version is available ... Done
+NOTICE: Downloading annotation database http://www.openbioinformatics.org/annovar/download/hg38_dbnsfp33a.txt.gz ... OK
+NOTICE: Downloading annotation database http://www.openbioinformatics.org/annovar/download/hg38_dbnsfp33a.txt.idx.gz ... OK
+NOTICE: Uncompressing downloaded files
+NOTICE: Finished downloading annotation files for hg38 build version, with files saved at the '/home/local/users/jw/resources/ANNOVAR_DB' directory
+Finish Download: Multi-Scores - Fri Jul 21 15:01:09 EDT 2017

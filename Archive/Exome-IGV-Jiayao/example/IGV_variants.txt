@@ -1,0 +1,3 @@
+17	26881240	1-06370.bwamem.mkdup.bam,1-06370-01.bwamem.mkdup.bam,1-06370-02.bwamem.mkdup.bam
+16	48577164	1-04730.bwamem.mkdup.bam,1-04730-01.bwamem.mkdup.bam,1-04730-02.bwamem.mkdup.bam
+11	20044634	1-02042.bwamem.mkdup.bam
